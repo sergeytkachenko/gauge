@@ -1,0 +1,19 @@
+:host {
+  height: 100%;
+  display: block;
+}
+
+#arc {
+  position: relative;
+}
+
+.text {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3.2em;
+  font-family: 'Lexend Mega', sans-serif;
+  color: #ff4013;
+}
+

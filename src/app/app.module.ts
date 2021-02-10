@@ -2,10 +2,12 @@ import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 
 import { AppComponent } from './app.component';
+import { SpeedometerComponent } from './speedometer/speedometer.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    SpeedometerComponent
   ],
   imports: [
     BrowserModule

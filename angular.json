@@ -119,6 +119,10 @@
           }
         }
       }
-    }},
-  "defaultProject": "speedometer"
+    }
+  },
+  "defaultProject": "speedometer",
+  "cli": {
+    "analytics": "08633f32-e476-404b-a4f2-a888c2ecc34d"
+  }
 }
