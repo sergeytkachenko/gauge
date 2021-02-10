@@ -107,7 +107,11 @@ export class SpeedometerComponent implements OnInit {
             .startAngle(series.startAngle)
             .endAngle(series.endAngle)
           )
-          .attr('fill', series.color);
+          .attr('fill', series.color)
+          .attr('opacity', '0')
+          .transition()
+          .duration(750)
+          .attr('opacity', '1');
       })
       // tslint:disable-next-line:typedef
       .each(function(d) {
