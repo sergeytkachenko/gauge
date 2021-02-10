@@ -90,17 +90,34 @@ export class SpeedometerComponent implements OnInit {
       const endAngle = (percentage * onePercentage * pi) + startAngle;
       series.startAngle = startAngle;
       series.endAngle = endAngle;
-      svg
-        .append('path')
-        .attr('transform', translate)
-        .attr('d', d3.arc()
-          .innerRadius(innerRadius)
-          .outerRadius(outerRadius)
-          .startAngle(startAngle)
-          .endAngle(endAngle)
-        )
-        .attr('fill', series.color);
     });
+    svg
+      .selectAll('path')
+      .data(config.series)
+      .enter()
+      // tslint:disable-next-line:typedef
+      .each(function(series: GaugeSeries) {
+        d3
+          .select(this)
+          .append('path')
+          .attr('transform', translate)
+          .attr('d', d3.arc()
+            .innerRadius(innerRadius)
+            .outerRadius(outerRadius)
+            .startAngle(series.startAngle)
+            .endAngle(series.endAngle)
+          )
+          .attr('fill', series.color);
+      })
+      // tslint:disable-next-line:typedef
+      .each(function(d) {
+        d3.select(this)
+          .append('text')
+          .attr('x', d.from)
+          .attr('y', d.to)
+          .attr('dy', '0.33em')
+          .text(d.from);
+      });
   }
 
 }
