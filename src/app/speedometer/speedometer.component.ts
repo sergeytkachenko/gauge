@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import {Component, Input, OnInit} from '@angular/core';
+import { Component, Input } from '@angular/core';
 
 interface GaugeSeries {
   yAngle?: number;
@@ -13,7 +13,7 @@ interface GaugeSeries {
   y?: number;
 }
 
-interface GaugeConfig {
+export interface GaugeConfig {
   series: GaugeSeries[];
   value: number;
 }
@@ -23,12 +23,18 @@ interface GaugeConfig {
   templateUrl: './speedometer.component.html',
   styleUrls: ['./speedometer.component.css']
 })
-export class SpeedometerComponent implements OnInit {
+export class SpeedometerComponent  {
 
   private readonly BORDER_PX = 18;
+  private readonly ARROW_HEADER_MARGIN = 5;
   private readonly FROM_RADIAN = -0.70;
   private readonly TO_RADIAN = 0.70;
   private readonly MARGIN = 0;
+
+  private centerX: number;
+  private centerY: number;
+  private outerRadius: number;
+  public config: GaugeConfig;
 
   @Input()
   width: number;
@@ -36,49 +42,40 @@ export class SpeedometerComponent implements OnInit {
   @Input()
   height: number;
 
-  public config: GaugeConfig;
-
-  constructor() { }
-
-  ngOnInit(): void {
-    this.config = {
-      series: [
-        {
-          color: '#ff4013',
-          from: 60,
-          to: 100,
-        },
-        {
-          color: '#e1e1e1',
-          from: 100,
-          to: 200,
-        },
-        {
-          color: '#eeeeee',
-          from: 200,
-          to: 230,
-        },
-        {
-          color: '#b6b400',
-          from: 230,
-          to: 280,
-        },
-      ],
-      value: 200,
-    };
+  @Input()
+  public set data(config: GaugeConfig) {
+    this.config = config;
     this.draw();
   }
 
+  private getAngleByValue(value: number, startAngle: number): number {
+    const firstSeries = Array.from(this.config.series).shift();
+    const lastSeries = Array.from(this.config.series).pop();
+    value = value - firstSeries.from;
+    const fromToNumberRange = lastSeries?.to - firstSeries?.from;
+    const onePercentage = (Math.abs(-0.7) + Math.abs(0.7)) / 100;
+    let percentage = (value / fromToNumberRange) * 100;
+    percentage = Math.min(percentage, 100);
+    percentage = Math.max(percentage, 0);
+    return (percentage * onePercentage * Math.PI) + startAngle - 0.05;
+  }
+
   private draw(): void {
+    if (!this.config) {
+      return;
+    }
     const labelPadding = 10;
     const config = this.config;
     const pi = Math.PI;
     const heightOrWidth = Math.min(this.width, this.height);
-    const outerRadius = heightOrWidth / 2 - this.MARGIN;
+    const outerRadius = this.outerRadius = heightOrWidth / 2 - this.MARGIN;
     const innerRadius = outerRadius - this.BORDER_PX;
-    const translateX = this.width / 2;
-    const translateY = this.height / 2 + this.BORDER_PX;
-    const translate = `translate(${translateX},${translateY})`;
+    const centerX = this.centerX = this.width / 2;
+    const centerY = this.centerY = this.height / 2 + this.BORDER_PX;
+    const translate = `translate(${centerX},${centerY})`;
+    d3.select('#arc')
+      .selectAll('svg')
+      .remove();
     const svg = d3.select('#arc')
       .append('svg')
       .attr('width', this.width)
@@ -98,8 +95,8 @@ export class SpeedometerComponent implements OnInit {
       const angle = series.startAngle;
       series.xAngle = Math.cos(angle - 1.56);
       series.yAngle = Math.sin(angle - 1.56);
-      series.x = translateX + Math.cos(angle - 1.56) * (outerRadius + labelPadding);
-      series.y = translateY + Math.sin(angle - 1.56) * (outerRadius + labelPadding);
+      series.x = centerX + Math.cos(angle - 1.56) * (outerRadius + labelPadding);
+      series.y = centerY + Math.sin(angle - 1.56) * (outerRadius + labelPadding);
     });
     svg
       .selectAll('path')
@@ -119,17 +116,16 @@ export class SpeedometerComponent implements OnInit {
           .attr('d', d)
           .attr('fill', series.color)
           .attr('opacity', '0')
-          .transition()
-          .duration(750)
+          // .transition()
+          // .duration(750)
           .attr('opacity', '1');
       })
       // tslint:disable-next-line:typedef
       .each(function(series) {
-        const x1 = translateX;
-        const y1 = translateY;
+        const x1 = centerX;
+        const y1 = centerY;
         const x2 = series.x;
         const y2 = series.y;
-        console.log(series.xAngle, series.yAngle, series.startAngle);
         const text = series.from;
         const textTranslateX = series.startAngle < 0
           ? -(text.toString().length * 9)
@@ -152,10 +148,56 @@ export class SpeedometerComponent implements OnInit {
           .style('font-family', 'Lexend Mega')
           .attr('transform', `translate(${textTranslateX}, 0)`)
           .attr('opacity', '0')
-          .transition()
-          .duration(1750)
+          // .transition()
+          // .duration(1750)
           .attr('opacity', '1');
       });
+    this.drawArrow(svg);
+  }
+
+  private getXByAngle(angle: number, margin: number, offset = -1.56): number {
+    return this.centerX + Math.cos(angle + offset) * (this.outerRadius - margin);
+  }
+
+  private getYByAngle(angle: number, margin: number, offset = -1.56): number {
+    return this.centerY + Math.sin(angle + offset) * (this.outerRadius - margin);
+  }
+
+  private drawArrow(svg): void {
+    const arrowCircleRadius = 14 / 2;
+    const arrowHeaderMargin = this.BORDER_PX + this.ARROW_HEADER_MARGIN;
+    const cursorAngle = this.getAngleByValue(this.config.value, -2.04);
+
+    const topX = this.getXByAngle(cursorAngle, arrowHeaderMargin, -1.66);
+    const topY = this.getYByAngle(cursorAngle, arrowHeaderMargin, -1.66);
+
+    const leftAngle = cursorAngle - 1.5;
+    const rightAngle = cursorAngle + 1.5;
+    const margin = this.outerRadius - arrowCircleRadius * 0.56;
+    const path = [
+      [topX, topY],
+      [
+        this.getXByAngle(leftAngle, margin),
+        this.getYByAngle(leftAngle, margin),
+      ],
+      [
+        this.getXByAngle(rightAngle, margin),
+        this.getYByAngle(rightAngle, margin),
+      ]
+    ];
+    const points = path
+      .map(item => `${item[0]},${item[1]}`)
+      .join(' ');
+    svg
+      .append('polygon')
+      .attr('points', points)
+      .attr('fill', '#ff4013');
+    svg
+      .append('circle')
+      .attr('cx', this.centerX)
+      .attr('cy', this.centerY)
+      .attr('r', arrowCircleRadius)
+      .attr('fill', '#ff4013');
   }
 
 }
