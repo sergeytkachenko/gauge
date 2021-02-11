@@ -2,6 +2,8 @@ import * as d3 from 'd3';
 import {Component, Input, OnInit} from '@angular/core';
 
 interface GaugeSeries {
+  yAngle?: number;
+  xAngle?: number;
   color: string;
   from: number;
   to: number;
@@ -62,12 +64,13 @@ export class SpeedometerComponent implements OnInit {
           to: 280,
         },
       ],
-      value: 320,
+      value: 200,
     };
     this.draw();
   }
 
   private draw(): void {
+    const labelPadding = 10;
     const config = this.config;
     const pi = Math.PI;
     const heightOrWidth = Math.min(this.width, this.height);
@@ -92,9 +95,11 @@ export class SpeedometerComponent implements OnInit {
       const endAngle = (percentage * onePercentage * pi) + startAngle;
       series.startAngle = startAngle + 0.02;
       series.endAngle = endAngle;
-      console.log(series.startAngle * 180 / Math.PI);
-      series.x = translateX + Math.cos(series.startAngle * 180 / Math.PI) * outerRadius;
-      series.y = translateY + Math.sin(series.startAngle * 180 / Math.PI) * outerRadius;
+      const angle = series.startAngle;
+      series.xAngle = Math.cos(angle - 1.56);
+      series.yAngle = Math.sin(angle - 1.56);
+      series.x = translateX + Math.cos(angle - 1.56) * (outerRadius + labelPadding);
+      series.y = translateY + Math.sin(angle - 1.56) * (outerRadius + labelPadding);
     });
     svg
       .selectAll('path')
@@ -120,20 +125,36 @@ export class SpeedometerComponent implements OnInit {
       })
       // tslint:disable-next-line:typedef
       .each(function(series) {
-        const d = d3.arc()
-          .innerRadius(innerRadius)
-          .outerRadius(outerRadius)
-          .startAngle(series.startAngle)
-          .endAngle(series.endAngle);
-        const centroid = d.centroid(null);
-        const x = centroid[0] + translateX;
-        const y = centroid[1] + translateY;
+        const x1 = translateX;
+        const y1 = translateY;
+        const x2 = series.x;
+        const y2 = series.y;
+        console.log(series.xAngle, series.yAngle, series.startAngle);
+        const text = series.from;
+        const textTranslateX = series.startAngle < 0
+          ? -(text.toString().length * 9)
+          : 0;
+        d3.select(this)
+          .append('line')
+          .attr('x1', x1)
+          .attr('y1', y1)
+          .attr('x2', x2)
+          .attr('y2', y2)
+          .attr('opacity', 0)
+          .attr('stroke', '#ccc');
         d3.select(this)
           .append('text')
-          .attr('x', x)
-          .attr('y', y)
-          .attr('transform', `translate(${centroid[0]}, ${centroid[1]})`)
-          .text(series.from);
+          .text(text)
+          .attr('x', x2)
+          .attr('y', y2)
+          .style('fill', 'red')
+          .style('font-size', '12px')
+          .style('font-family', 'Lexend Mega')
+          .attr('transform', `translate(${textTranslateX}, 0)`)
+          .attr('opacity', '0')
+          .transition()
+          .duration(1750)
+          .attr('opacity', '1');
       });
   }
 
