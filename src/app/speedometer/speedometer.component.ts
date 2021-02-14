@@ -1,7 +1,9 @@
 import * as d3 from 'd3';
-import { Component, Input } from '@angular/core';
+import {AfterViewInit, Component, ElementRef, Input, ViewChild} from '@angular/core';
 
 interface GaugeSeries {
+  endAngleX?: number;
+  endAngleY?: number;
   yAngle?: number;
   xAngle?: number;
   color: string;
@@ -9,8 +11,8 @@ interface GaugeSeries {
   to: number;
   startAngle?: number;
   endAngle?: number;
-  x?: number;
-  y?: number;
+  startAngleX?: number;
+  startAngleY?: number;
 }
 
 export interface GaugeConfig {
@@ -23,8 +25,9 @@ export interface GaugeConfig {
   templateUrl: './speedometer.component.html',
   styleUrls: ['./speedometer.component.css']
 })
-export class SpeedometerComponent  {
-
+export class SpeedometerComponent implements AfterViewInit  {
+  @ViewChild('chart')
+  private chartRef: ElementRef;
   private readonly BORDER_PX = 18;
   private readonly ARROW_HEADER_MARGIN = 5;
   private readonly FROM_RADIAN = -0.70;
@@ -48,6 +51,11 @@ export class SpeedometerComponent  {
     this.draw();
   }
 
+  ngAfterViewInit(): void {
+    // tslint:disable-next-line:no-unused-expressi
+    this.draw();
+  }
+
   private getAngleByValue(value: number, startAngle: number): number {
     const firstSeries = Array.from(this.config.series).shift();
     const lastSeries = Array.from(this.config.series).pop();
@@ -61,7 +69,7 @@ export class SpeedometerComponent  {
   }
 
   private draw(): void {
-    if (!this.config) {
+    if (!this.config || !this.chartRef?.nativeElement) {
       return;
     }
     const labelPadding = 10;
@@ -73,11 +81,7 @@ export class SpeedometerComponent  {
     const centerX = this.centerX = this.width / 2;
     const centerY = this.centerY = this.height / 2 + this.BORDER_PX;
     const translate = `translate(${centerX},${centerY})`;
-    d3.select('#arc')
-      .selectAll('svg')
-      .remove();
-    const svg = d3.select('#arc')
-      .append('svg')
+    const svg = d3.select(this.chartRef.nativeElement)
       .attr('width', this.width)
       .attr('height', this.height);
     const firstSeries = Array.from(config.series).shift();
@@ -92,15 +96,40 @@ export class SpeedometerComponent  {
       const endAngle = (percentage * onePercentage * pi) + startAngle;
       series.startAngle = startAngle + 0.02;
       series.endAngle = endAngle;
-      const angle = series.startAngle;
-      series.xAngle = Math.cos(angle - 1.56);
-      series.yAngle = Math.sin(angle - 1.56);
-      series.x = centerX + Math.cos(angle - 1.56) * (outerRadius + labelPadding);
-      series.y = centerY + Math.sin(angle - 1.56) * (outerRadius + labelPadding);
+      series.xAngle = Math.cos(series.startAngle - 1.56);
+      series.yAngle = Math.sin(series.startAngle - 1.56);
+      series.endAngleX = centerX + Math.cos(series.endAngle - 1.56) * (outerRadius + labelPadding);
+      series.endAngleY = centerY + Math.sin(series.endAngle - 1.56) * (outerRadius + labelPadding);
+
+      series.startAngleX = centerX + Math.cos(series.startAngle - 1.56) * (outerRadius + labelPadding);
+      series.startAngleY = centerY + Math.sin(series.startAngle - 1.56) * (outerRadius + labelPadding);
+    });
+    const seriesWithLabels = config.series.map(series => {
+      const text = series.from;
+      const textTranslateX = series.startAngle < 0
+        ? -(text.toString().length * 9)
+        : 0;
+      const labels = [
+        {
+          x1: centerX,
+          y1: centerY,
+          x2: series.startAngleX,
+          y2: series.startAngleY,
+          text,
+          textTranslateX,
+        }
+      ];
+      return {
+        labels,
+        ...series,
+      };
     });
     svg
+      .selectAll('*')
+      .remove();
+    svg
       .selectAll('path')
-      .data(config.series)
+      .data(seriesWithLabels)
       .enter()
       // tslint:disable-next-line:typedef
       .each(function(series: GaugeSeries) {
@@ -119,39 +148,61 @@ export class SpeedometerComponent  {
           // .transition()
           // .duration(750)
           .attr('opacity', '1');
-      })
+      });
+    svg
+      .selectAll('line')
+      .data(seriesWithLabels)
+      .enter()
+      .append('line')
+      .attr('x1', d => d.labels[0].x1)
+      .attr('y1', d => d.labels[0].y1)
+      .attr('x2', d => d.labels[0].x2)
+      .attr('y2', d => d.labels[0].y2)
+      .attr('opacity', 0)
+      .attr('stroke', '#ccc');
       // tslint:disable-next-line:typedef
-      .each(function(series) {
-        const x1 = centerX;
-        const y1 = centerY;
-        const x2 = series.x;
-        const y2 = series.y;
-        const text = series.from;
-        const textTranslateX = series.startAngle < 0
-          ? -(text.toString().length * 9)
-          : 0;
-        d3.select(this)
-          .append('line')
-          .attr('x1', x1)
-          .attr('y1', y1)
-          .attr('x2', x2)
-          .attr('y2', y2)
-          .attr('opacity', 0)
-          .attr('stroke', '#ccc');
-        d3.select(this)
-          .append('text')
-          .text(text)
-          .attr('x', x2)
-          .attr('y', y2)
-          .style('fill', 'red')
-          .style('font-size', '12px')
-          .style('font-family', 'Lexend Mega')
-          .attr('transform', `translate(${textTranslateX}, 0)`)
-          .attr('opacity', '0')
+    svg
+      .selectAll('text.label')
+      .data(seriesWithLabels)
+      .enter()
+      .append('text')
+      .text(d => d.labels[0].text)
+      .attr('class', 'label')
+      .attr('x', d => d.labels[0].x2)
+      .attr('y', d => d.labels[0].y2)
+      .style('fill', 'red')
+      .style('font-size', '12px')
+      .style('font-family', 'Lexend Mega')
+      .attr('transform', d => `translate(${d.labels[0].textTranslateX}, 0)`);
+    /*
+      .each(function(series, index) {
+        const labels = series.labels || [];
+        labels.forEach(label => {
+          d3.select(this)
+            .append('line')
+            .attr('x1', label.x1)
+            .attr('y1', label.y1)
+            .attr('x2', label.x2)
+            .attr('y2', label.y2)
+            .attr('opacity', 0)
+            .attr('stroke', '#ccc');
+          // add labels
+          d3.select(this)
+            .append('text')
+            .text(label.text)
+            .attr('x', label.x2)
+            .attr('y', label.y2)
+            .style('fill', 'red')
+            .style('font-size', '12px')
+            .style('font-family', 'Lexend Mega')
+            .attr('transform', `translate(${label.textTranslateX}, 0)`);
+          // .attr('opacity', '0')
           // .transition()
           // .duration(1750)
-          .attr('opacity', '1');
+          // .attr('opacity', '1');
+        });
       });
+      */
     this.drawArrow(svg);
   }
 
@@ -185,18 +236,32 @@ export class SpeedometerComponent  {
         this.getYByAngle(rightAngle, margin),
       ]
     ];
-    const points = path
+    const polygonPoints = path
       .map(item => `${item[0]},${item[1]}`)
       .join(' ');
     svg
+      .selectAll('polygon.arrow')
+      .data([polygonPoints])
+      .enter()
       .append('polygon')
-      .attr('points', points)
+      .attr('class', 'arrow')
+      .attr('points', d => d)
       .attr('fill', '#ff4013');
     svg
+      .selectAll('circle.arrow')
+      .data([
+        {
+          cx: this.centerX,
+          cy: this.centerY,
+          r: arrowCircleRadius,
+        }
+      ])
+      .enter()
       .append('circle')
-      .attr('cx', this.centerX)
-      .attr('cy', this.centerY)
-      .attr('r', arrowCircleRadius)
+      .attr('class', 'arrow')
+      .attr('cx', d => d.cx)
+      .attr('cy', d => d.cy)
+      .attr('r', d => d.r)
       .attr('fill', '#ff4013');
   }
 

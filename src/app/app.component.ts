@@ -13,32 +13,38 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     setInterval(() => {
-      this.value ++;
+      this.value += 10;
       this.config = {
-        series: [
-          {
-            color: '#ff4013',
-            from: 60,
-            to: 100,
-          },
-          {
-            color: '#e1e1e1',
-            from: 100,
-            to: 200,
-          },
-          {
-            color: '#eeeeee',
-            from: 200,
-            to: 230,
-          },
-          {
-            color: '#b6b400',
-            from: 230,
-            to: 400,
-          },
-        ],
+        ...this.config,
         value: this.value,
       };
-    }, 2500);
+      this.config.series[0].from -= 4;
+    }, 1000);
+    this.value += 10;
+    this.config = {
+      series: [
+        {
+          color: '#ff4013',
+          from: 60,
+          to: 100,
+        },
+        {
+          color: '#e1e1e1',
+          from: 100,
+          to: 200,
+        },
+        {
+          color: '#eeeeee',
+          from: 200,
+          to: 230,
+        },
+        {
+          color: '#b6b400',
+          from: 230,
+          to: 400,
+        },
+      ],
+      value: this.value,
+    };
   }
 }
